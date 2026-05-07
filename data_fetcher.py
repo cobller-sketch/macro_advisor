@@ -10,7 +10,7 @@ def fetch_us_data(fred_api_key):
     ppi_us = fred.get_series('PPIACO', observation_start='2000-01-01')
     fedfunds = fred.get_series('FEDFUNDS', observation_start='2000-01-01')
     gdp_us = fred.get_series('GDP', observation_start='2000-01-01')
-    gdp_us_monthly = gdp_us.resample('M').ffill()
+    gdp_us_monthly = gdp_us.resample('ME').ffill()
     return cpi_us, ppi_us, fedfunds, gdp_us_monthly
 
 def fetch_cn_data():
@@ -27,7 +27,7 @@ def fetch_cn_data():
     gdp_cn = ak.macro_china_gdp()
     gdp_cn['季度'] = pd.to_datetime(gdp_cn['季度'])
     gdp_cn.set_index('季度', inplace=True)
-    gdp_cn_monthly = gdp_cn['国内生产总值-绝对值'][::-1].resample('M').ffill()
+    gdp_cn_monthly = gdp_cn['国内生产总值-绝对值'][::-1].resample('ME').ffill()
     
     rate_cn = ak.macro_china_shibor()
     rate_cn['日期'] = pd.to_datetime(rate_cn['日期'])
