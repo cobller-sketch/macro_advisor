@@ -1,7 +1,6 @@
 import pandas as pd
 import akshare as ak
 from fredapi import Fred
-from datetime import datetime
 import os
 
 def fetch_us_data(fred_api_key):
@@ -14,25 +13,66 @@ def fetch_us_data(fred_api_key):
     return cpi_us, ppi_us, fedfunds, gdp_us_monthly
 
 def fetch_cn_data():
+    # 中国CPI
     cpi_cn = ak.macro_china_cpi_monthly()
-    cpi_cn['月份'] = pd.to_datetime(cpi_cn['月份'])
-    cpi_cn.set_index('月份', inplace=True)
-    cpi_cn = cpi_cn['cpi']
+    # 自动识别列名
+    if '月份' in cpi_cn.columns:
+        date_col = '月份'
+    elif 'month' in cpi_cn.columns:
+        date_col = 'month'
+    elif '日期' in cpi_cn.columns:
+        date_col = '日期'
+    else:
+        # 如果都没找到，默认用第一列
+        date_col = cpi_cn.columns[0]
+    cpi_cn[date_col] = pd.to_datetime(cpi_cn[date_col])
+    cpi_cn.set_index(date_col, inplace=True)
+    cpi_cn = cpi_cn['cpi'] if 'cpi' in cpi_cn.columns else cpi_cn.iloc[:, 0]
     
+    # 中国PPI
     ppi_cn = ak.macro_china_ppi()
-    ppi_cn['月份'] = pd.to_datetime(ppi_cn['月份'])
-    ppi_cn.set_index('月份', inplace=True)
-    ppi_cn = ppi_cn['ppi_yoy']
+    if '月份' in ppi_cn.columns:
+        date_col = '月份'
+    elif 'month' in ppi_cn.columns:
+        date_col = 'month'
+    elif '日期' in ppi_cn.columns:
+        date_col = '日期'
+    else:
+        date_col = ppi_cn.columns[0]
+    ppi_cn[date_col] = pd.to_datetime(ppi_cn[date_col])
+    ppi_cn.set_index(date_col, inplace=True)
+    ppi_cn = ppi_cn['ppi_yoy'] if 'ppi_yoy' in ppi_cn.columns else ppi_cn.iloc[:, 0]
     
+    # 中国GDP
     gdp_cn = ak.macro_china_gdp()
-    gdp_cn['季度'] = pd.to_datetime(gdp_cn['季度'])
-    gdp_cn.set_index('季度', inplace=True)
-    gdp_cn_monthly = gdp_cn['国内生产总值-绝对值'][::-1].resample('ME').ffill()
+    if '季度' in gdp_cn.columns:
+        date_col = '季度'
+    elif '日期' in gdp_cn.columns:
+        date_col = '日期'
+    else:
+        date_col = gdp_cn.columns[0]
+    gdp_cn[date_col] = pd.to_datetime(gdp_cn[date_col])
+    gdp_cn.set_index(date_col, inplace=True)
+    # 取绝对值列（可能是第一列）
+    gdp_col = gdp_cn.columns[0]
+    gdp_cn_monthly = gdp_cn[gdp_col][::-1].resample('ME').ffill()
     
+    # 中国利率（隔夜Shibor）
     rate_cn = ak.macro_china_shibor()
-    rate_cn['日期'] = pd.to_datetime(rate_cn['日期'])
-    rate_cn.set_index('日期', inplace=True)
-    rate_cn = rate_cn['O/N_IR']
+    if '日期' in rate_cn.columns:
+        date_col = '日期'
+    elif 'date' in rate_cn.columns:
+        date_col = 'date'
+    else:
+        date_col = rate_cn.columns[0]
+    rate_cn[date_col] = pd.to_datetime(rate_cn[date_col])
+    rate_cn.set_index(date_col, inplace=True)
+    # 取隔夜利率列
+    if 'O/N_IR' in rate_cn.columns:
+        rate_cn = rate_cn['O/N_IR']
+    else:
+        rate_cn = rate_cn.iloc[:, 0]
+    
     return cpi_cn, ppi_cn, gdp_cn_monthly, rate_cn
 
 def update_all_data(fred_key):
