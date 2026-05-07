@@ -1,0 +1,6 @@
+pandas
+akshare
+fredapi
+plotly
+streamlit
+pyarrow

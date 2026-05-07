@@ -1,0 +1,60 @@
+import pandas as pd
+import akshare as ak
+from fredapi import Fred
+from datetime import datetime
+import os
+
+def fetch_us_data(fred_api_key):
+    fred = Fred(api_key=fred_api_key)
+    cpi_us = fred.get_series('CPIAUCSL', observation_start='2000-01-01')
+    ppi_us = fred.get_series('PPIACO', observation_start='2000-01-01')
+    fedfunds = fred.get_series('FEDFUNDS', observation_start='2000-01-01')
+    gdp_us = fred.get_series('GDP', observation_start='2000-01-01')
+    gdp_us_monthly = gdp_us.resample('M').ffill()
+    return cpi_us, ppi_us, fedfunds, gdp_us_monthly
+
+def fetch_cn_data():
+    cpi_cn = ak.macro_china_cpi_monthly()
+    cpi_cn['月份'] = pd.to_datetime(cpi_cn['月份'])
+    cpi_cn.set_index('月份', inplace=True)
+    cpi_cn = cpi_cn['cpi']
+    
+    ppi_cn = ak.macro_china_ppi()
+    ppi_cn['月份'] = pd.to_datetime(ppi_cn['月份'])
+    ppi_cn.set_index('月份', inplace=True)
+    ppi_cn = ppi_cn['ppi_yoy']
+    
+    gdp_cn = ak.macro_china_gdp()
+    gdp_cn['季度'] = pd.to_datetime(gdp_cn['季度'])
+    gdp_cn.set_index('季度', inplace=True)
+    gdp_cn_monthly = gdp_cn['国内生产总值-绝对值'][::-1].resample('M').ffill()
+    
+    rate_cn = ak.macro_china_shibor()
+    rate_cn['日期'] = pd.to_datetime(rate_cn['日期'])
+    rate_cn.set_index('日期', inplace=True)
+    rate_cn = rate_cn['O/N_IR']
+    return cpi_cn, ppi_cn, gdp_cn_monthly, rate_cn
+
+def update_all_data(fred_key):
+    us_cpi, us_ppi, us_rate, us_gdp = fetch_us_data(fred_key)
+    cn_cpi, cn_ppi, cn_gdp, cn_rate = fetch_cn_data()
+    data = {
+        'us_cpi': us_cpi, 'us_ppi': us_ppi, 'us_rate': us_rate, 'us_gdp': us_gdp,
+        'cn_cpi': cn_cpi, 'cn_ppi': cn_ppi, 'cn_gdp': cn_gdp, 'cn_rate': cn_rate
+    }
+    os.makedirs('data', exist_ok=True)
+    for name, series in data.items():
+        series.to_parquet(f'data/{name}.parquet')
+    return data
+
+def load_cached_data():
+    if not os.path.exists('data'):
+        return None
+    data = {}
+    for name in ['us_cpi', 'us_ppi', 'us_rate', 'us_gdp', 'cn_cpi', 'cn_ppi', 'cn_gdp', 'cn_rate']:
+        path = f'data/{name}.parquet'
+        if os.path.exists(path):
+            data[name] = pd.read_parquet(path)
+        else:
+            return None
+    return data

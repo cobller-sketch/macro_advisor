@@ -1,0 +1,64 @@
+def get_recommendation(latest_us_gdp_growth, latest_us_cpi, latest_us_rate,
+                       latest_cn_gdp_growth, latest_cn_cpi, latest_cn_rate,
+                       latest_ppi, latest_cpi):
+    if latest_cn_gdp_growth > 2 and latest_cn_cpi > 2.5:
+        phase = "过热"
+    elif latest_cn_gdp_growth > 2 and latest_cn_cpi <= 2.5:
+        phase = "复苏"
+    elif latest_cn_gdp_growth <= 2 and latest_cn_cpi > 2.5:
+        phase = "滞胀"
+    else:
+        phase = "衰退"
+    
+    rate_spread = latest_us_rate - latest_cn_rate
+    if rate_spread > 2:
+        dollar_bias = 0.15
+    else:
+        dollar_bias = -0.05
+    
+    scissors = latest_ppi - latest_cpi
+    if scissors > 1:
+        style = "价值"
+    else:
+        style = "成长"
+    
+    base_weights = {
+        "过热": {"商品基金": 0.35, "贵金属": 0.15, "红利低波": 0.20, "货币基金": 0.20, "债基": 0.10},
+        "复苏": {"权益类(成长)": 0.40, "商品基金": 0.15, "黄金": 0.10, "债基": 0.20, "货币基金": 0.15},
+        "滞胀": {"黄金ETF": 0.30, "商品基金": 0.25, "货币基金": 0.25, "短债": 0.15, "权益": 0.05},
+        "衰退": {"国债ETF": 0.40, "红利低波": 0.20, "货币基金": 0.25, "黄金": 0.10, "权益": 0.05},
+    }
+    weights = base_weights[phase].copy()
+    
+    if dollar_bias > 0:
+        weights["美元债QDII"] = 0.10
+        weights["货币基金"] = weights.get("货币基金", 0) - 0.05
+        if "权益类(成长)" in weights:
+            weights["权益类(成长)"] -= 0.05
+    
+    if style == "价值":
+        weights["红利低波"] = weights.get("红利低波", 0) + 0.10
+        if "权益类(成长)" in weights:
+            weights["权益类(成长)"] -= 0.05
+    else:
+        weights["权益类(成长)"] = weights.get("权益类(成长)", 0) + 0.10
+    
+    total = sum(weights.values())
+    weights = {k: round(v/total, 2) for k, v in weights.items()}
+    
+    product_map = {
+        "权益类(成长)": "科创50ETF(588000) / 恒生科技ETF(513180)",
+        "红利低波": "中证红利ETF(515080)",
+        "黄金ETF": "黄金ETF(518880)",
+        "国债ETF": "十年国债ETF(511260)",
+        "货币基金": "银华日利ETF(511880)",
+        "商品基金": "豆粕ETF(159985) / 能源化工ETF(159981)",
+        "美元债QDII": "国泰境外高收益债(000103)",
+        "债基": "招商双债增强LOF(161716)",
+        "贵金属": "黄金ETF(518880)",
+        "短债": "短融ETF(511360)",
+        "黄金": "黄金ETF(518880)",
+        "权益": "沪深300ETF(510300)"
+    }
+    recommendation = {product_map.get(k, k): v for k, v in weights.items() if v > 0}
+    return recommendation, phase, style, rate_spread
